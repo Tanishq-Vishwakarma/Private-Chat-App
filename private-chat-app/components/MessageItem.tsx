@@ -5,14 +5,29 @@ interface MessageItemProps {
   text: string;
   timestamp: string;
   isOwn?: boolean;
+  groupId: string;
 }
 
-export default function MessageItem({ anonId, text, timestamp, isOwn }: MessageItemProps) {
+import axiosClient from '@/lib/axiosClient';
+
+export default function MessageItem({ anonId, text, timestamp, isOwn, groupId }: MessageItemProps) {
   const date = new Date(timestamp);
   const timeString = date.toLocaleTimeString('en-US', { 
     hour: '2-digit', 
     minute: '2-digit' 
   });
+
+  const handleReport = async () => {
+    try {
+      await axiosClient.post('/users/report', { groupId, anonId });
+    } catch {}
+  };
+
+  const handleBlock = async () => {
+    try {
+      await axiosClient.post('/users/block', { groupId, anonId });
+    } catch {}
+  };
 
   return (
     <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-4`}>
@@ -32,6 +47,17 @@ export default function MessageItem({ anonId, text, timestamp, isOwn }: MessageI
           </span>
         </div>
         <p className="text-sm break-words">{text}</p>
+        {!isOwn && (
+          <div className="mt-2 flex gap-2">
+            <button onClick={handleReport} className={`text-xs ${isOwn ? 'text-indigo-100' : 'text-gray-500 dark:text-gray-400'} hover:underline`}>
+              Report
+            </button>
+            <span className={`${isOwn ? 'text-indigo-100' : 'text-gray-300 dark:text-gray-600'}`}>•</span>
+            <button onClick={handleBlock} className={`text-xs ${isOwn ? 'text-indigo-100' : 'text-gray-500 dark:text-gray-400'} hover:underline`}>
+              Block
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
