@@ -4,6 +4,7 @@ import { ApiResponse } from "../../utils/ApiResponse.js";
 import { Message } from "../../models/message.model.js";
 import { AnonymousMember } from "../../models/anonymousMember.model.js";
 import { Group } from "../../models/group.model.js";
+import { Block } from "../../models/block.model.js";
 import mongoose from "mongoose";
 
 const getMessages = asyncHandler(async (req, res) => {
@@ -35,12 +36,22 @@ const getMessages = asyncHandler(async (req, res) => {
         .sort({ timestamp: 1 })
         .select("anonId text timestamp");
 
+    // Filter out messages from blocked senders
+    const memberships = await AnonymousMember.find({ groupId: groupId }).select("anonId userId");
+    const anonToUser = new Map(memberships.map(m => [m.anonId, String(m.userId)]));
+    const blocked = await Block.find({ blockerId: userId }).select("blockedUserId");
+    const blockedSet = new Set(blocked.map(b => String(b.blockedUserId)));
+    const filtered = messages.filter(msg => {
+        const senderUserId = anonToUser.get(msg.anonId);
+        return !senderUserId || !blockedSet.has(senderUserId);
+    });
+
     return res
         .status(200)
         .json(
             new ApiResponse(
                 200,
-                messages,
+                filtered,
                 "Messages fetched successfully"
             )
         );

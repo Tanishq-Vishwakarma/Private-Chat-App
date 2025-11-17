@@ -19,6 +19,9 @@ export const verifyJWT = async (req, res, next) => {
             throw new ApiError(401, "Invalid Access Token");
         }
 
+        if (user.isBanned) {
+            throw new ApiError(403, "User is banned from chats");
+        }
         req.user = user;
         next();
     } catch (error) {

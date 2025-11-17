@@ -20,11 +20,12 @@ const messageSchema = new mongoose.Schema({
         default: Date.now
     }
 }, {
-    timestamps: true
+  timestamps: true
 });
 
 // Index for faster queries
 messageSchema.index({ groupId: 1, timestamp: -1 });
+messageSchema.index({ timestamp: 1 }, { expireAfterSeconds: 1209600 });
 
 export const Message = mongoose.model("Message", messageSchema);
 

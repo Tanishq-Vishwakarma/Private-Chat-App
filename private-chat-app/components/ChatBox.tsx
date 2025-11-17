@@ -42,6 +42,7 @@ export default function ChatBox({ groupId }: ChatBoxProps) {
               text={message.text}
               timestamp={message.timestamp}
               isOwn={message.anonId === currentAnonId}
+              groupId={groupId}
             />
           ))
         )}

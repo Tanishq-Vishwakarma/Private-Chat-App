@@ -7,6 +7,8 @@ import {app} from "./app.js";
 import { AnonymousMember } from "./models/anonymousMember.model.js";
 import { Message } from "./models/message.model.js";
 import jwt from "jsonwebtoken";
+import { Block } from "./models/block.model.js";
+import { User } from "./models/user.model.js";
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
@@ -24,6 +26,10 @@ io.use(async (socket, next) => {
             return next(new Error("Authentication error"));
         }
         const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+        const user = await User.findById(decoded._id);
+        if (!user || user.isBanned) {
+            return next(new Error("Authentication error"));
+        }
         socket.userId = decoded._id;
         next();
     } catch (error) {
@@ -80,8 +86,26 @@ io.on("connection", (socket) => {
                 timestamp: message.timestamp
             };
 
-            // Broadcast to all users in the group
-            io.to(`group-${groupId}`).emit("new-message", messageData);
+            // Broadcast selectively (skip recipients who blocked the sender)
+            const roomName = `group-${groupId}`;
+            const room = io.sockets.adapter.rooms.get(roomName);
+            if (room) {
+                // Find sender's actual userId via anon membership
+                const member = await AnonymousMember.findOne({ groupId: groupId, anonId: message.anonId });
+                const senderUserId = member?.userId?.toString();
+                for (const socketId of room) {
+                    const recipientSocket = io.sockets.sockets.get(socketId);
+                    const recipientUserId = recipientSocket?.userId?.toString();
+                    if (!senderUserId || !recipientUserId) {
+                        recipientSocket?.emit("new-message", messageData);
+                        continue;
+                    }
+                    const blocked = await Block.findOne({ blockerId: recipientUserId, blockedUserId: senderUserId });
+                    if (!blocked) {
+                        recipientSocket?.emit("new-message", messageData);
+                    }
+                }
+            }
         } catch (error) {
             socket.emit("error", { message: "Failed to send message" });
         }
